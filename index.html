@@ -620,8 +620,8 @@ footer{padding:1.4rem 4rem;border-top:1px solid var(--line);display:flex;align-i
     <div class="ctft">
       <div class="ctlk">
         <a class="ctl" href="https://behance.net/amerarnaout" target="_blank">Behance</a>
-        <a class="ctl" href="https://linkedin.com/in/amerarnaout" target="_blank">LinkedIn</a>
-        <a class="ctl" href="https://github.com/CoderGeek97" target="_blank">GitHub</a>
+        <a class="ctl" href="www.linkedin.com/in/amer-arnaout" target="_blank">LinkedIn</a>
+        <a class="ctl" href="https://github.com/amerarnaout" target="_blank">GitHub</a>
         <a class="ctl" href="tel:+963938613695">+963 938 613 695</a>
       </div>
       <div class="ctav">Available full-time &amp; freelance</div>
@@ -841,14 +841,17 @@ if(ctm){
   // ── tunable composition constants ──────────────────────────
   var CAM_FOV = 38;
   var CAM_POS = { x: 0, y: 0.35, z: 8.4 };
-  var SUBJECT_OFFSET = { x: 1.85, y: -0.55 }; // pushes astronaut to the right side of the hero
-  var MAX_YAW = THREE.MathUtils.degToRad(30);
-  var MAX_PITCH = THREE.MathUtils.degToRad(17);
+  // moon + astronaut placement — solved to land inside the marked box
+  var MOON_RADIUS = 1.2;
+  var MOON_CENTER = { x: 3.55, y: -0.45, z: -1.0 };
+  var ASTRO_POS = { x: 3.55, y: 0.6, z: -1.0 };
+  var MAX_YAW = THREE.MathUtils.degToRad(35);
+  var MAX_PITCH = THREE.MathUtils.degToRad(50);
   var LOOK_EASE = 0.07; // lower = lazier / more "watching you" lag
 
   var renderer, scene, camera, clock;
   var helmetPivot, astronautGroup, backpackLight, moonMesh;
-  var raycaster, lookPlane, mouseNDC, targetPoint, lookHit;
+  var raycaster, lookPlane, mouseNDC, targetPoint, lookHit, headScreen;
   var running = true;
   var hasMouse = false;
 
@@ -881,6 +884,7 @@ if(ctm){
     mouseNDC = new THREE.Vector2(0, 0);
     targetPoint = new THREE.Vector3();
     lookHit = new THREE.Vector3();
+    headScreen = new THREE.Vector3();
 
     buildLights();
     buildMoon();
@@ -950,24 +954,60 @@ if(ctm){
   }
 
   function buildMoon() {
-    var geo = new THREE.IcosahedronGeometry(3.4, 5);
+    var radius = MOON_RADIUS;
+    var geo = new THREE.SphereGeometry(radius, 48, 32);
     var pos = geo.attributes.position;
-    for (var i = 0; i < pos.count; i++) {
+    var n = pos.count;
+    var colors = new Float32Array(n * 3);
+
+    // a handful of round, soft-edged craters scattered on the sphere —
+    // colour-painted rather than carved, so the surface stays smooth
+    var craters = [];
+    for (var c = 0; c < 14; c++) {
+      var theta = hash3(c * 1.7, c * 3.1, 0.5) * Math.PI * 2;
+      var v = hash3(c * 7.7, 0.5, c * 9.1);
+      var phi = Math.acos(v * 2 - 1);
+      craters.push({
+        x: Math.sin(phi) * Math.cos(theta),
+        y: Math.cos(phi),
+        z: Math.sin(phi) * Math.sin(theta),
+        r: 0.18 + hash3(c * 4.4, c * 6.6, 1.5) * 0.22,
+      });
+    }
+
+    var base = { r: 0.72, g: 0.71, b: 0.695 };
+    for (var i = 0; i < n; i++) {
       var ix = pos.array[i * 3], iy = pos.array[i * 3 + 1], iz = pos.array[i * 3 + 2];
       var len = Math.sqrt(ix * ix + iy * iy + iz * iz) || 1;
       var nx = ix / len, ny = iy / len, nz = iz / len;
-      var bump =
-        (hash3(nx * 3.1, ny * 3.1, nz * 3.1) - 0.5) * 0.16 +
-        (hash3(nx * 8.7, ny * 8.7, nz * 8.7) - 0.5) * 0.07 +
-        (hash3(nx * 19.0, ny * 19.0, nz * 19.0) - 0.5) * 0.025;
+
+      // very gentle large-scale undulation only — never enough to look spiky/faceted
+      var bump = (hash3(nx * 2.2, ny * 2.2, nz * 2.2) - 0.5) * 0.035 * radius;
       pos.array[i * 3] = ix + nx * bump;
       pos.array[i * 3 + 1] = iy + ny * bump;
       pos.array[i * 3 + 2] = iz + nz * bump;
+
+      var dark = 0;
+      for (var c2 = 0; c2 < craters.length; c2++) {
+        var cc = craters[c2];
+        var d = Math.sqrt((nx - cc.x) * (nx - cc.x) + (ny - cc.y) * (ny - cc.y) + (nz - cc.z) * (nz - cc.z));
+        var f = 1 - Math.min(1, d / cc.r);
+        if (f > 0) {
+          f = f * f;
+          if (f > dark) dark = f * 0.52;
+        }
+      }
+      var shade = 1 - dark;
+      colors[i * 3] = base.r * shade;
+      colors[i * 3 + 1] = base.g * shade;
+      colors[i * 3 + 2] = base.b * shade;
     }
+
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    var mat = new THREE.MeshStandardMaterial({ color: 0xA8A49C, roughness: 0.96, metalness: 0 });
+    var mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.97, metalness: 0 });
     moonMesh = new THREE.Mesh(geo, mat);
-    moonMesh.position.set(SUBJECT_OFFSET.x, -3.85 + SUBJECT_OFFSET.y, -1.2);
+    moonMesh.position.set(MOON_CENTER.x, MOON_CENTER.y, MOON_CENTER.z);
     scene.add(moonMesh);
   }
 
@@ -1010,7 +1050,7 @@ if(ctm){
     var glowM   = new THREE.MeshStandardMaterial({ color: ACCENT, emissive: ACCENT, emissiveIntensity: 1.8, roughness: 0.35 });
 
     astronautGroup = new THREE.Group();
-    astronautGroup.position.set(SUBJECT_OFFSET.x, -1.55 + SUBJECT_OFFSET.y, -1.0);
+    astronautGroup.position.set(ASTRO_POS.x, ASTRO_POS.y, ASTRO_POS.z);
     scene.add(astronautGroup);
 
     // ── HIPS / SEAT ───────────────────────────────────────────────────────────
@@ -1048,10 +1088,10 @@ if(ctm){
     backpack.position.set(0, 0.78, -0.58);
     astronautGroup.add(backpack);
 
-    // Rounded dome on top of backpack (reference has a bulbous top)
-    var bpDome = new THREE.Mesh(new THREE.SphereGeometry(0.30, 14, 10), packM);
-    bpDome.scale.set(1.20, 0.55, 0.90);
-    bpDome.position.set(0, 1.36, -0.56);
+    // Rounded dome on top of backpack (reference has a large bulbous white dome)
+    var bpDome = new THREE.Mesh(new THREE.SphereGeometry(0.36, 16, 14), packM);
+    bpDome.scale.set(1.12, 0.90, 1.02);
+    bpDome.position.set(0, 1.42, -0.55);
     astronautGroup.add(bpDome);
 
     // Small side knob on backpack
@@ -1073,20 +1113,36 @@ if(ctm){
     var head = new THREE.Mesh(new THREE.SphereGeometry(0.54, 30, 24), suit);
     helmetPivot.add(head);
 
-    // Dark visor — large oval window
+    // Dark visor — large oval bubble covering most of the front face
     var visorMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.46, 26, 20, 0, Math.PI * 2, 0, Math.PI * 0.60),
+      new THREE.SphereGeometry(0.50, 28, 22, 0, Math.PI * 2, 0, Math.PI * 0.62),
       visor
     );
-    visorMesh.position.set(0, 0.06, 0.20);
-    visorMesh.rotation.x = -0.30;
+    visorMesh.scale.set(0.90, 0.88, 1.0);  // squish into a wider oval
+    visorMesh.position.set(0, 0.05, 0.22);
+    visorMesh.rotation.x = -0.28;
     helmetPivot.add(visorMesh);
 
     // RED visor rim — thick ring matching the bold red frame in reference
-    var visorRim = new THREE.Mesh(new THREE.TorusGeometry(0.46, 0.062, 14, 38), red);
+    var visorRim = new THREE.Mesh(new THREE.TorusGeometry(0.49, 0.068, 14, 40), red);
     visorRim.rotation.x = Math.PI / 2;
-    visorRim.position.set(0, 0.02, 0.06);
+    visorRim.position.set(0, 0.01, 0.06);
     helmetPivot.add(visorRim);
+
+    // Stars reflected inside the visor (tiny emissive dots = space feel)
+    var starMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveIntensity: 3.5, roughness: 0.1 });
+    [[0.06, 0.14, 0.44], [-0.10, 0.09, 0.45], [0.14, 0.01, 0.43],
+     [-0.06, -0.05, 0.45], [0.11, 0.19, 0.43], [-0.15, 0.15, 0.42],
+     [0.02, -0.02, 0.46], [-0.04, 0.22, 0.43]].forEach(function(p) {
+      var s = new THREE.Mesh(new THREE.SphereGeometry(0.007 + Math.random() * 0.005, 5, 4), starMat);
+      s.position.set(p[0], p[1], p[2]);
+      helmetPivot.add(s);
+    });
+    // Orange highlight reflection dot (visible in reference)
+    var hiM = new THREE.MeshStandardMaterial({ color: 0xFF7733, emissive: 0xFF7733, emissiveIntensity: 2.0 });
+    var hi = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), hiM);
+    hi.position.set(0.09, 0.06, 0.44);
+    helmetPivot.add(hi);
 
     // Small antenna stub on right side of helmet
     var ant = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.20, 8), suitSh);
@@ -1185,36 +1241,32 @@ if(ctm){
   }
 
   function updateHeadLook(dt) {
-    var dirX = 0, dirY = 0, dirZ = 1;
+    var pitchTarget = 0, yawTarget = 0;
 
     if (hasMouse) {
-      raycaster.setFromCamera(mouseNDC, camera);
-      var hit = raycaster.ray.intersectPlane ? raycaster.ray.intersectPlane(lookPlane, lookHit) : null;
-      if (hit) {
-        var headWorld = helmetPivot.getWorldPosition(targetPoint);
-        dirX = hit.x - headWorld.x;
-        dirY = hit.y - headWorld.y;
-        dirZ = hit.z - headWorld.z;
-      }
+      // Project the helmet pivot into screen (NDC) space so we know where
+      // the head IS on-screen, then compute how far the cursor is from it.
+      helmetPivot.getWorldPosition(headScreen);
+      headScreen.project(camera);
+
+      // relX > 0 → cursor is to the right of the head  → look right (+yaw)
+      // relY > 0 → cursor is above the head            → look up   (-pitch)
+      var relX = mouseNDC.x - headScreen.x;
+      var relY = mouseNDC.y - headScreen.y;
+
+      // Scale factor ≈ "how many head-widths from centre = full rotation"
+      yawTarget   = THREE.MathUtils.clamp( relX * 1.8, -1, 1) * MAX_YAW;
+      pitchTarget = THREE.MathUtils.clamp(-relY * 1.8, -1, 1) * MAX_PITCH;
     } else {
-      // no mouse (touch devices): gentle autonomous idle wander, so it still feels alive
+      // Touch / no-mouse: gentle autonomous idle wander so it still feels alive
       var t = clock.elapsedTime || 0;
-      dirX = Math.sin(t * 0.35) * 0.6;
-      dirY = Math.sin(t * 0.5) * 0.25;
-      dirZ = 1;
+      yawTarget   = Math.sin(t * 0.35) * MAX_YAW   * 0.40;
+      pitchTarget = Math.sin(t * 0.50) * MAX_PITCH  * 0.15;
     }
 
-    var len = Math.sqrt(dirX * dirX + dirY * dirY + dirZ * dirZ) || 1;
-    dirX /= len; dirY /= len; dirZ /= len;
-
-    var yaw = Math.atan2(dirX, dirZ);
-    var horiz = Math.sqrt(dirX * dirX + dirZ * dirZ);
-    var pitch = Math.atan2(dirY, horiz);
-
-    yaw = THREE.MathUtils.clamp(yaw, -MAX_YAW, MAX_YAW);
-    pitch = THREE.MathUtils.clamp(pitch, -MAX_PITCH, MAX_PITCH);
-
-    var targetQuat = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
+    var targetQuat = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(pitchTarget, yawTarget, 0, "YXZ")
+    );
     helmetPivot.quaternion.slerp(targetQuat, Math.min(1, LOOK_EASE * (dt * 60)));
   }
 
@@ -1227,7 +1279,7 @@ if(ctm){
     updateHeadLook(dt);
 
     var t = clock.elapsedTime;
-    astronautGroup.position.y = -1.55 + SUBJECT_OFFSET.y + Math.sin(t * 0.7) * 0.035;
+    astronautGroup.position.y = ASTRO_POS.y + Math.sin(t * 0.7) * 0.035;
     if (backpackLight) backpackLight.material.emissiveIntensity = 1.1 + Math.sin(t * 1.8) * 0.55;
     if (moonMesh) moonMesh.rotation.y = t * 0.01;
 
@@ -1236,4 +1288,4 @@ if(ctm){
 })();
 </script>
 </body>
-</html>s
+</html>
