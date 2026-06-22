@@ -1155,7 +1155,7 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
       },
       undefined,
       (err) => {
-        console.warn("[hero3d] GLB failed to load from " + url + ":", err);
+        console.warn(`[hero3d] GLB failed to load from :`, err);
         if (index + 1 < assetCandidates.length) {
           loadCandidate(index + 1);
           return;
@@ -1232,6 +1232,70 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
     if (fallback) fallback.classList.remove("visible");
   }
 })();
+</script>
+
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script>
+let scene, camera, renderer, astronaut, headBone;
+const mouse = {x:0,y:0};
+
+window.addEventListener('pointermove', (e)=>{
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+});
+
+function init3D(){
+  const canvas = document.getElementById('hero3d');
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(35, window.innerWidth/window.innerHeight, 0.1, 100);
+  camera.position.z = 6;
+
+  renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  const hemi = new THREE.HemisphereLight(0xffffff,0x444444,1.2);
+  scene.add(hemi);
+
+  const dir = new THREE.DirectionalLight(0xffffff,1);
+  dir.position.set(2,2,2);
+  scene.add(dir);
+
+  const loader = new THREE.GLTFLoader();
+  loader.load('Meshy_AI_Lunar_Daydream_0622123350_texture-compressed.glb', (gltf)=>{
+    astronaut = gltf.scene;
+    scene.add(astronaut);
+
+    astronaut.traverse((o)=>{
+      if(o.isBone && o.name && o.name.toLowerCase().includes('head')) {
+        headBone = o;
+      }
+    });
+  });
+}
+
+function animate(){
+  requestAnimationFrame(animate);
+
+  if(astronaut){
+    astronaut.rotation.y += (mouse.x*0.25 - astronaut.rotation.y)*0.08;
+    astronaut.rotation.x += (mouse.y*0.15 - astronaut.rotation.x)*0.08;
+  }
+
+  if(headBone){
+    headBone.rotation.y = mouse.x*0.9;
+    headBone.rotation.x = mouse.y*0.6;
+  }
+
+  renderer.render(scene,camera);
+}
+
+init3D();
+animate();
 </script>
 
 </body>
