@@ -4,8 +4,15 @@
   <meta charset="UTF-8" />
   <title>Portfolio</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { display: block; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    canvas {
+      display: block;
+    }
   </style>
 </head>
 
@@ -13,6 +20,7 @@
 
 <canvas id="hero3d"></canvas>
 
+<!-- Three.js -->
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.160.0/examples/js/loaders/GLTFLoader.js"></script>
 
@@ -22,9 +30,9 @@ let scene, camera, renderer;
 let astronaut = null;
 let headBone = null;
 
-// --------------------
-// Cursor system (clean + correct)
-// --------------------
+// -----------------------------
+// SAFE CURSOR SYSTEM (no inversion bugs)
+// -----------------------------
 const mouse = { x: 0, y: 0 };
 const target = { x: 0, y: 0 };
 
@@ -33,9 +41,12 @@ window.addEventListener("pointermove", (e) => {
   target.y = (e.clientY / window.innerHeight) * 2 - 1;
 });
 
-// --------------------
-// Init
-// --------------------
+// -----------------------------
+// INIT
+// -----------------------------
+init();
+animate();
+
 function init() {
 
   const canvas = document.getElementById("hero3d");
@@ -48,6 +59,7 @@ function init() {
     0.1,
     100
   );
+
   camera.position.z = 6;
 
   renderer = new THREE.WebGLRenderer({
@@ -59,16 +71,16 @@ function init() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-  // lights
+  // LIGHTS
   scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
 
   const dir = new THREE.DirectionalLight(0xffffff, 1);
   dir.position.set(2, 2, 2);
   scene.add(dir);
 
-  // --------------------
-  // LOAD MODEL (FIXED)
-  // --------------------
+  // -----------------------------
+  // LOAD ASTRO (ROBUST)
+  // -----------------------------
   const loader = new THREE.GLTFLoader();
 
   loader.load(
@@ -79,37 +91,35 @@ function init() {
       astronaut = gltf.scene;
       scene.add(astronaut);
 
-      // IMPORTANT FIXES AFTER OPTIMIZATION
+      // safety reset (prevents invisible optimized models)
       astronaut.position.set(0, 0, 0);
       astronaut.scale.set(1, 1, 1);
 
-      astronaut.traverse((child) => {
-
-        if (child.isMesh) {
-          child.frustumCulled = false;
-          child.visible = true;
+      astronaut.traverse((c) => {
+        if (c.isMesh) {
+          c.frustumCulled = false;
+          c.visible = true;
         }
 
-        if (child.isBone && child.name?.toLowerCase().includes("head")) {
-          headBone = child;
+        if (c.isBone && c.name?.toLowerCase().includes("head")) {
+          headBone = c;
         }
-
       });
 
-      console.log("✅ Astronaut loaded successfully");
+      console.log("✅ Astronaut loaded");
     },
 
     undefined,
 
     (err) => {
-      console.error("❌ GLB failed to load:", err);
+      console.error("❌ GLB load error:", err);
     }
   );
 }
 
-// --------------------
-// Animation loop (FIXED + STABLE)
-// --------------------
+// -----------------------------
+// ANIMATION LOOP (STABLE + CORRECT AXES)
+// -----------------------------
 function animate() {
 
   requestAnimationFrame(animate);
@@ -120,31 +130,30 @@ function animate() {
 
   if (astronaut) {
 
-    const tx = mouse.y * 0.25;
-    const ty = mouse.x * 0.45;
+    const rotX = mouse.y * 0.25;
+    const rotY = mouse.x * 0.45;
 
-    astronaut.rotation.x += (tx - astronaut.rotation.x) * 0.08;
-    astronaut.rotation.y += (ty - astronaut.rotation.y) * 0.08;
-
+    astronaut.rotation.x += (rotX - astronaut.rotation.x) * 0.08;
+    astronaut.rotation.y += (rotY - astronaut.rotation.y) * 0.08;
   }
 
   if (headBone) {
 
     headBone.rotation.x += (mouse.y * 0.9 - headBone.rotation.x) * 0.12;
     headBone.rotation.y += (mouse.x * 0.9 - headBone.rotation.y) * 0.12;
-
   }
 
   renderer.render(scene, camera);
 }
 
-init();
-animate();
-
-// resize fix
+// -----------------------------
+// RESIZE SAFE
+// -----------------------------
 window.addEventListener("resize", () => {
+
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
