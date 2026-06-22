@@ -1283,12 +1283,12 @@ function animate(){
 
   if(astronaut){
     astronaut.rotation.y += (mouse.x*0.25 - astronaut.rotation.y)*0.08;
-    astronaut.rotation.x += (mouse.y*0.15 - astronaut.rotation.x)*0.08;
+    astronaut.rotation.x += (mouse.y * 0.15 - astronaut.rotation.x) * 0.08;*0.08;
   }
 
   if(headBone){
     headBone.rotation.y = mouse.x*0.9;
-    headBone.rotation.x = mouse.y*0.6;
+    headBone.rotation.x = mouse.y * 0.6;
   }
 
   renderer.render(scene,camera);
