@@ -1146,43 +1146,38 @@ import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 
   function makeNeckFill(material) {
-    const mat = new THREE.MeshStandardMaterial({
-      color: (material && material.color && material.color.isColor) ? material.color.getHex() : 0xF2EEE7,
-      roughness: 0.96,
+    const cavityMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1c0f0b,
+      roughness: 1.0,
       metalness: 0.0
     });
 
     const neck = new THREE.Group();
 
-    // Main sleeve that bridges the empty seam and moves with the head.
-    const sleeve = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.17, 0.20, 0.30, 24, 1, false),
-      mat
+    // Full interior blocker to hide the hollow gap when the head turns.
+    const cavity = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.30, 0.34, 0.65, 32, 1, false),
+      cavityMaterial
     );
-    sleeve.position.y = -0.02;
-    sleeve.rotation.z = 0.015;
-    neck.add(sleeve);
+    cavity.position.y = 0.12;
+    neck.add(cavity);
 
-    // Slightly darker inner occluder to hide hollow depth if the helmet turns.
-    const inner = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.10, 0.11, 0.22, 24, 1, false),
-      new THREE.MeshStandardMaterial({
-        color: 0x1a1815,
-        roughness: 1.0,
-        metalness: 0.0
-      })
+    // Rounded cap to fill the upper inside volume of the helmet/neck.
+    const cap = new THREE.Mesh(
+      new THREE.SphereGeometry(0.29, 24, 16),
+      cavityMaterial
     );
-    inner.position.y = -0.03;
-    neck.add(inner);
+    cap.position.y = 0.32;
+    cap.scale.y = 0.55;
+    neck.add(cap);
 
-    // Thin collar lip to match the suit geometry.
-    const lip = new THREE.Mesh(
-      new THREE.TorusGeometry(0.175, 0.022, 10, 24),
-      mat
+    // Small lower plug to prevent any visible void under the collar.
+    const lowerPlug = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.24, 0.28, 0.18, 32, 1, false),
+      cavityMaterial
     );
-    lip.rotation.x = Math.PI / 2;
-    lip.position.y = 0.10;
-    neck.add(lip);
+    lowerPlug.position.y = -0.16;
+    neck.add(lowerPlug);
 
     return neck;
   }
