@@ -32,7 +32,7 @@
 :root{
   --p:#F0EDE7;
   --ink:#0E0D0A;
-  --accent:#d1ff00;
+  --accent:#aeff00e4;
   --accent-dim:#a8b824;
   --accent-rgb:209,255,0; /* same color as --accent, as r,g,b — for rgba() glows that need to track the current theme's accent (box-shadow etc. can't read a hex var directly) */
   --spot-rgb:240,237,231; /* same color as --p, as r,g,b — for the hero-fallback spotlight glow */
@@ -1019,7 +1019,7 @@ body.theme-mars .wk3d-title{font-family:var(--pc);font-weight:600}
 
 .exr{display:grid;grid-template-columns:48px 1fr auto auto;gap:3rem;align-items:center;padding:2.6rem 1rem;position:relative;overflow:hidden;cursor:none}
 .exr::after{content:'';position:absolute;left:.4rem;top:.4rem;right:.4rem;bottom:.4rem;border-radius:14px;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);background:rgba(14,13,10,.035);border:1px solid rgba(14,13,10,.08);z-index:0}
-.exr::before{content:'';position:absolute;left:.4rem;top:.4rem;right:.4rem;bottom:.4rem;border-radius:14px;background:#c6d92d;z-index:1;pointer-events:none;transition:background-color .6s var(--ease-out);
+.exr::before{content:'';position:absolute;left:.4rem;top:.4rem;right:.4rem;bottom:.4rem;border-radius:14px;background:#aeff00e4;z-index:1;pointer-events:none;transition:background-color .6s var(--ease-out);
   clip-path:polygon(0% 100%, 0% 100%, 100% 100%, 100% 100%);
 }
 body.theme-mars .exr::before{background:#a63d0b}
